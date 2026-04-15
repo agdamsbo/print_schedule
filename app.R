@@ -12,11 +12,10 @@ validate_ics_link <- function(link) {
 }
 
 categorise_events <- function(df, tz = "Europe/Copenhagen") {
-
     # Detect all-day events: start at 00:00:00 and end at 00:00:00 the next day
     # (iCal all-day convention: DTSTART = date 00:00, DTEND = next date 00:00)
     is_allday <- format(df$DTSTART, "%H:%M:%S") == "00:00:00" &
-        format(df$DTEND,   "%H:%M:%S") == "00:00:00" &
+        format(df$DTEND, "%H:%M:%S") == "00:00:00" &
         as.Date(df$DTEND) > as.Date(df$DTSTART)
 
     if (any(is_allday)) {
@@ -25,7 +24,7 @@ categorise_events <- function(df, tz = "Europe/Copenhagen") {
         expanded <- do.call(rbind, lapply(seq_len(nrow(allday)), function(i) {
             row     <- allday[i, ]
             start_d <- as.Date(format(row$DTSTART, "%Y-%m-%d", tz = tz))
-            end_d   <- as.Date(format(row$DTEND,   "%Y-%m-%d", tz = tz)) - 1
+            end_d   <- as.Date(format(row$DTEND, "%Y-%m-%d", tz = tz)) - 1
             days    <- seq(start_d, end_d, by = "day")
             n       <- length(days)
             rep_row <- row[rep(1, n), ]
@@ -40,7 +39,7 @@ categorise_events <- function(df, tz = "Europe/Copenhagen") {
     df <- df |>
         dplyr::mutate(
             StartTime = format(DTSTART, "%H:%M"),
-            EndTime   = format(DTEND,   "%H:%M"),
+            EndTime   = format(DTEND, "%H:%M"),
             StretchesToNextDay = as.Date(DTEND) > as.Date(DTSTART),
             EventType = ifelse(
                 StretchesToNextDay,
@@ -53,11 +52,8 @@ categorise_events <- function(df, tz = "Europe/Copenhagen") {
                 glue::glue("{EventType} ({SUMMARY})"),
                 EventType
             ),
-            EventType = ifelse(
-                StartTime == "00:00" & EndTime == "23:59",
-                SUMMARY,
-                EventType
-            )
+            EventType = ifelse(StartTime == "00:00" &
+                                   EndTime == "23:59", SUMMARY, EventType)
         )
 
     return(df)
@@ -207,34 +203,28 @@ ui <- fluidPage(
     shiny::p(
         "Udskriv oversigt over arbejdstider for de næste dage ud fra det delte kalender link fra MyPlan"
     ),
-    # shiny::p(
-    #     "Bemærk at programmet primært er rettet mod at vise arbejdsdage/vagter"
-    # ),
+    shiny::p(
+        "Husk at når du printer kalenderen får du et øjebliksbillede. Det kan være rart, men du skal være opmærksom på ændringer der kommer til."
+    ),
     textInput(
         inputId = "link",
         label = "Indsæt kalenderlink:",
         placeholder = "https://minplan.rm.dk/SharedCalendar/11248--yg6u0EBIE5.ics"
     ),
-    verbatimTextOutput("file_info")
-    ,
-    # tabsetPanel(
-    #     tabPanel(
-    #         "From Link",
-    #         textInput("link", "Enter .ics file link:", placeholder = "https://example.com/calendar.ics")
-    #     )#,
-    #     # tabPanel(
-    #     #     "From Computer",
-    #     #     fileInput("file1", "Choose .ics file", accept = ".ics")
-    #     # )
-    # ),
-    shiny::numericInput(
-        inputId = "length",
-        label = "Dage til udskrift",
-        min = 7,
-        max = 150,
-        value = 30
+    # verbatimTextOutput("file_info"),
+    fluidRow(
+        column(
+            width = 6,
+            shiny::numericInput(
+                inputId = "length",
+                label = "Dage til udskrift:",
+                min = 7,
+                max = 150,
+                value = 30
+            )
+        ),
+        column(width = 6, shiny::uiOutput("event_types"))
     ),
-    shiny::uiOutput("event_types"),
     shiny::h3("Kalender (når klar):"),
     shiny::plotOutput("calendar", height = "60vh"),
     shiny::downloadButton(outputId = "download", label = "Hent A4")
@@ -245,17 +235,17 @@ server <- function(input, output) {
                                 data_filter = NULL,
                                 p = NULL)
 
-    output$file_info <- renderPrint({
-        if (!is.null(input$file1)) {
-            cat("Valgt fil:", input$file1$name)
-        } else if (!isTRUE(validate_ics_link(input$link))) {
-            cat("Indsæt korrekt link.")
-        } else if (!is.null(input$link) && input$link != "") {
-            cat("Indsat link:", input$link)
-        } else {
-            cat("Intet link indsat.")
-        }
-    })
+    # output$file_info <- renderPrint({
+    #     if (!is.null(input$file1)) {
+    #         cat("Valgt fil:", input$file1$name)
+    #     } else if (!isTRUE(validate_ics_link(input$link))) {
+    #         cat("Indsæt korrekt link.")
+    #     } else if (!is.null(input$link) && input$link != "") {
+    #         cat("Indsat link:", input$link)
+    #     } else {
+    #         cat("Intet link indsat.")
+    #     }
+    # })
 
     shiny::observeEvent(list(input$file1, input$link), {
         if (!is.null(input$file1)) {
@@ -280,7 +270,7 @@ server <- function(input, output) {
         output$event_types <- shiny::renderUI(
             shiny::selectInput(
                 inputId = "event_types",
-                label = "Vælg kategorier, der skal på kalenderen",
+                label = "Vælg typer, der skal på kalenderen:",
                 choices = options,
                 selected = defaults[defaults %in% options],
                 multiple = TRUE
@@ -290,8 +280,7 @@ server <- function(input, output) {
 
     observeEvent(input$event_types, {
         req(input$event_types)
-# browser()
-        # write.csv(rv$data,file = "test.csv")
+
         rv$data_filter <- rv$data |>
             dplyr::filter(SUMMARY %in% input$event_types) |>
             categorise_events()
@@ -373,5 +362,4 @@ server <- function(input, output) {
 # Run the application
 shinyApp(ui = ui, server = server)
 
-### - test med spl vagter
-### - Håndter events, der strækker sig over flere dage (Ferie og Kursus)
+### - test med andre skemaer (SL, spl vagter)

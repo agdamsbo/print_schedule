@@ -1,6 +1,6 @@
 
-options(repos = c(CRAN = "https://cran.rstudio.com/"))
-utils::install.packages(c("cpp11", "dplyr", "magrittr", "rlang", "rmarkdown", "sourcetools", "tinytex"))
+# options(repos = c(CRAN = "https://cran.rstudio.com/"))
+# utils::install.packages(c("cpp11", "dplyr", "magrittr", "rlang", "rmarkdown", "sourcetools", "tinytex"))
 
 
 {require("rsconnect")
