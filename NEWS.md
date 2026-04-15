@@ -1,0 +1,7 @@
+# print_schedule 2026.4.2
+
+Support for other event types and whole day events. UI in Danish now.
+
+# print_schedule 2026.4.1
+
+First version.
