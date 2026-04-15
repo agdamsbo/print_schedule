@@ -18,7 +18,7 @@ categorise_events <- function(df, tz = "Europe/Copenhagen") {
         format(df$DTEND, "%H:%M:%S") == "00:00:00" &
         as.Date(df$DTEND) > as.Date(df$DTSTART)
 
-    if (any(is_allday)) {
+    if (isTRUE(any(is_allday))) {
         allday <- df[is_allday, ]
 
         expanded <- do.call(rbind, lapply(seq_len(nrow(allday)), function(i) {
