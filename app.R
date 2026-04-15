@@ -63,7 +63,8 @@ print_events <- function(data,
                          start = Sys.Date(),
                          length = NULL,
                          start_col = "start_date",
-                         cat_col = "EventType") {
+                         cat_col = "EventType",
+                         palette = "Spectral") {
     df_cat_min <- data |>
         dplyr::mutate(start_date = as.Date(format(DTSTART, "%Y-%m-%d"))) |>
         dplyr::select(
@@ -122,9 +123,10 @@ print_events <- function(data,
         start = "M",
         legend.pos = "bottom",
         special.days = df_print[[cat_col]],
-        special.col = RColorBrewer::brewer.pal(length(unique(
+        special.col = generate_colors(n = length(unique(
             na.omit(df_print[[cat_col]])
-        )), "Spectral")
+        )), palette = palette)
+        # RColorBrewer::brewer.pal(, "Spectral")
     )
 }
 
@@ -194,6 +196,178 @@ ggplot2pdf <- function(p,
     }
 }
 
+## Colors
+
+generate_colors <- function(n, palette = "viridis", ...) {
+    # --- Input validation -------------------------------------------------------
+    if (!is.numeric(n) || length(n) != 1 || n < 1 || n %% 1 != 0) {
+        stop("`n` must be a single positive integer.")
+    }
+    if (!is.function(palette) &&
+        (!is.character(palette) || length(palette) != 1)) {
+        stop("`palette` must be a single character string or a function.")
+    }
+
+    # --- Function passthrough ---------------------------------------------------
+    if (is.function(palette)) {
+        return(palette(n, ...))
+    }
+
+    # --- Named palette dispatch -------------------------------------------------
+    palette_lower <- tolower(palette)
+
+    viridis_palettes <- c("viridis",
+                          "magma",
+                          "plasma",
+                          "inferno",
+                          "cividis",
+                          "mako",
+                          "rocket",
+                          "turbo")
+
+    if (palette_lower %in% viridis_palettes) {
+        viridisLite::viridis(n = n, option = palette_lower, ...)
+
+    } else if (palette_lower == "hcl") {
+        grDevices::hcl.colors(n = n, ...)
+
+    } else if (palette_lower == "rainbow") {
+        grDevices::rainbow(n = n, ...)
+
+    } else if (palette_lower == "heat") {
+        grDevices::heat.colors(n = n, ...)
+
+    } else if (palette_lower == "terrain") {
+        grDevices::terrain.colors(n = n, ...)
+
+    } else if (palette_lower == "topo") {
+        grDevices::topo.colors(n = n, ...)
+
+    } else {
+        # Case-insensitive RColorBrewer lookup
+        brewer_names <- rownames(RColorBrewer::brewer.pal.info)
+        brewer_match <- brewer_names[match(palette_lower, tolower(brewer_names))]
+
+        if (!is.na(brewer_match)) {
+            max_n       <- RColorBrewer::brewer.pal.info[brewer_match, "maxcolors"]
+            fetch_n     <- max(min(n, max_n), 3L)
+            base_colors <- RColorBrewer::brewer.pal(n = fetch_n, name = brewer_match)
+            grDevices::colorRampPalette(base_colors)(n)
+
+        } else {
+            # Case-insensitive grDevices palette.pals() lookup
+            pal_names <- grDevices::palette.pals()
+            pal_match <- pal_names[match(palette_lower, tolower(pal_names))]
+
+            if (!is.na(pal_match)) {
+                grDevices::colorRampPalette(grDevices::palette.colors(palette = pal_match))(n)
+
+            } else if (palette %in% grDevices::hcl.pals()) {
+                # Named HCL palettes (e.g. "Rocket", "Plasma") — distinct from viridisLite
+                grDevices::hcl.colors(n = n, palette = palette, ...)
+
+            } else {
+                warning(
+                    "Unknown palette: '",
+                    palette,
+                    "'. Falling back to viridis.\n",
+                    "Available options:\n",
+                    "  viridisLite  : viridis, magma, plasma, inferno, cividis, mako, rocket, turbo\n",
+                    "  grDevices    : hcl, rainbow, heat, terrain, topo\n",
+                    "  grDevices HCL: use grDevices::hcl.pals() to see all options\n",
+                    "  grDevices    : use grDevices::palette.pals() to see all options\n",
+                    "  RColorBrewer : use RColorBrewer::brewer.pal.info to see all options"
+                )
+                viridisLite::viridis(n = n, option = "viridis")
+            }
+        }
+    }
+}
+
+
+colorSelectInput <- function(inputId,
+                             label,
+                             choices,
+                             selected = NULL,
+                             previews = 4,
+                             ...,
+                             placeholder = "") {
+    vals <- if (shiny::is.reactive(choices)) {
+        choices()
+    } else{
+        choices
+    }
+
+    swatch_html <- function(palette_name) {
+        colors <- tryCatch(
+            suppressMessages(generate_colors(previews, palette_name)),
+            error = function(e)
+                rep("#cccccc", 3)
+        )
+        # Strip alpha channel to ensure valid 6-digit CSS hex
+        colors <- substr(colors, 1, 7)
+        paste0(
+            sprintf(
+                "<span style='display:inline-block;width:12px;height:12px;background:%s;border-radius:2px;margin-right:1px;'></span>",
+                colors
+            ),
+            collapse = ""
+        )
+    }
+
+
+
+    labels <- sprintf(
+        '{"name": "%s", "label": "%s", "swatch": "%s"}',
+        vals,
+        names(vals) %||% "",
+        vapply(vals, swatch_html, character(1))
+    )
+
+    choices_new <- stats::setNames(vals, labels)
+
+    if (is.null(selected) || selected == "") {
+        selected <- vals[[1]]
+    }
+
+    shiny::selectizeInput(
+        inputId  = inputId,
+        label    = label,
+        choices  = choices_new,
+        selected = selected,
+        ...,
+        options = list(
+            render = I(
+                "{
+    option: function(item, escape) {
+      item.data = JSON.parse(item.label);
+      return '<div style=\"padding:3px 12px\">' +
+               '<div><strong>' + escape(item.data.name) + '</strong></div>' +
+               (item.data.label != '' ? '<div><small>' + escape(item.data.label) + '</small></div>' : '') +
+               '<div style=\"margin-top:4px\">' + item.data.swatch + '</div>' +
+             '</div>';
+    },
+    item: function(item, escape) {
+      item.data = JSON.parse(item.label);
+      return '<div style=\"display:flex;align-items:center;gap:6px\">' +
+               '<span>' + escape(item.data.name) + '</span>' +
+               item.data.swatch +
+             '</div>';
+    }
+  }"
+            ),
+            onInitialize = I(
+                "function() {
+    var self = this;
+    self.$control_input.prop('readonly', true);
+    self.$control_input.css('cursor', 'default');
+    self.$control.css('cursor', 'pointer');
+  }"
+            )
+        )
+    )
+}
+
 
 
 ############ APP
@@ -211,23 +385,44 @@ ui <- fluidPage(
         label = "Indsæt kalenderlink:",
         placeholder = "https://minplan.rm.dk/SharedCalendar/11248--yg6u0EBIE5.ics"
     ),
-    # verbatimTextOutput("file_info"),
-    fluidRow(
-        column(
-            width = 6,
-            shiny::numericInput(
-                inputId = "length",
-                label = "Dage til udskrift:",
-                min = 7,
-                max = 150,
-                value = 30
-            )
+    conditionalPanel(
+        condition = "input.link.trim() !== ''",
+        colorSelectInput(
+            inputId = "color_palette",
+            label = "Vælg farvekort",
+            choices = c(
+                "Regnbue"                      = "Spectral",
+                "Kraftig og tydelig"           = "Dark2",
+                "Klar og levende"              = "Set1",
+                "Blød og dæmpet"               = "Set2",
+                "Pastel"                       = "Pastel1",
+                # "Parrede farver"               = "Paired",
+                "Farveblind-venlig"            = "Okabe-Ito",
+                "Mange kategorier (varieret)"  = "Alphabet",
+                # "Mange kategorier (rig)"       = "Polychrome 36",
+                "Rød, gul, grøn"               = "RdYlGn"
+            ),
+            previews = 6
         ),
-        column(width = 6, shiny::uiOutput("event_types"))
-    ),
-    shiny::h3("Kalender (når klar):"),
-    shiny::plotOutput("calendar", height = "60vh"),
-    shiny::downloadButton(outputId = "download", label = "Hent A4")
+        # verbatimTextOutput("file_info"),
+        fluidRow(
+            column(
+                width = 6,
+                shiny::numericInput(
+                    inputId = "length",
+                    label = "Dage til udskrift:",
+                    min = 7,
+                    max = 150,
+                    value = 30
+                )
+            ),
+            column(width = 6, shiny::uiOutput("event_types"))
+        ),
+        shiny::h3("Kalender (når klar):"),
+        shiny::plotOutput("calendar", height = "60vh"),
+        shiny::downloadButton(outputId = "download", label = "Hent A4")
+    )
+
 )
 
 server <- function(input, output) {
@@ -290,7 +485,8 @@ server <- function(input, output) {
     output$calendar <- renderPlot({
         req(rv$data_filter)
 
-        rv$p <- rv$data_filter |> print_events(length = input$length)
+        rv$p <- rv$data_filter |> print_events(length = input$length,
+                                               palette = input$color_palette)
         rv$p
     })
 
@@ -363,3 +559,5 @@ server <- function(input, output) {
 shinyApp(ui = ui, server = server)
 
 ### - test med andre skemaer (SL, spl vagter)
+### - week-wise plotting
+### - round nearest whole month/week

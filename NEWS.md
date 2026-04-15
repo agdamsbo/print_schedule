@@ -1,3 +1,7 @@
+# print_schedule 2026.4.3
+
+Color choices and hidden ui until link.
+
 # print_schedule 2026.4.2
 
 Support for other event types and whole day events. UI in Danish now.
