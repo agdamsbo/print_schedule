@@ -568,8 +568,6 @@ calendR <- function(
                                                  dplyr::if_else(fill != 0, "highlight", NA_character_))
   )
 
-  t2$event_label <- NA_character_
-
   # Build colour scale
   fill_values <- c(highlight = special.col)
   if (has_events) fill_values <- c(fill_values, palette)
