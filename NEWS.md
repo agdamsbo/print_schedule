@@ -1,3 +1,8 @@
+# print_schedule 2026.4.4
+
+A small GDPR-compliant tracking script was included to get basic usage information. No sensitive data is stored or kept.
+Small note on the origin added.
+
 # print_schedule 2026.4.3
 
 Color choices and hidden ui until link.

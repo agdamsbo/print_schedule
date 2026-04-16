@@ -1,6 +1,6 @@
 Package: print_schedule
 Title: What the Package Does (One Line, Title Case)
-Version: 2026.4.3
+Version: 2026.4.4
 Authors@R: 
     person("Andreas Gammelgaard", "Damsbo",email="andreas@gdamsbo.dk", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-7559-1154"))
