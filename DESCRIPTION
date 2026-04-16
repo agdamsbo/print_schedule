@@ -1,25 +1,28 @@
-Package: print_schedule
-Title: What the Package Does (One Line, Title Case)
-Version: 2026.4.4
-Authors@R: 
-    person("Andreas Gammelgaard", "Damsbo",email="andreas@gdamsbo.dk", role = c("aut", "cre"),
+Package: PrintSchedule
+Title: Print Work Schedules from Shared Calendar Files
+Version: 26.4.5
+Authors@R:
+    person("Andreas Gammelgaard", "Damsbo", email = "andreas@gdamsbo.dk", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-7559-1154"))
-Description: What the package does (one paragraph).
+Description: A Shiny application for generating printable calendars from shared .ics calendar files (iCal format). Designed for healthcare workers to print work schedules from MyPlan shared calendar links. Features include color-coded event types, week and month views, and PDF export.
 License: CC BY 4.0
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.0.0
-Imports: 
+RoxygenNote: 7.3.3
+Imports:
     calendar,
-    calendR,
-    cpp11,
     dplyr,
-    here,
-    keyring,
-    rmarkdown,
-    rsconnect,
-    shinylive,
-    tinytex,
+    ggplot2,
+    glue,
+    grDevices,
+    lubridate,
+    RColorBrewer,
+    shiny,
+    stats,
+    tidyselect,
     viridisLite
+Suggests:
+    rsconnect,
+    shinylive
 URL: https://github.com/agdamsbo/print_schedule
 BugReports: https://github.com/agdamsbo/print_schedule/issues

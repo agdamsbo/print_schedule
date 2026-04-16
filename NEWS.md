@@ -1,3 +1,8 @@
+# PrintSchedule 2026.4.5
+
+Week-based plotting.
+Restructured as R package and documented. Claude Code with Ollama experiment.
+
 # print_schedule 2026.4.4
 
 A small GDPR-compliant tracking script was included to get basic usage information. No sensitive data is stored or kept.
