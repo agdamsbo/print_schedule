@@ -107,53 +107,53 @@ print_events <- function(data,
                     date <= date_end)
 
   # browser()
-  calendR(
-      from = date_start,
-      to = date_end,
-      view = "month",
-      title = glue::glue(
-          "Schedule ({as.character(date_start)} to {as.character(date_end)})"
-      ),
-      subtitle = paste("Printed on", date_start),
-      week.number = TRUE,
-      start = "M",
-      legend.pos = "bottom",
-      events = dplyr::rename(df_print,label=!!cat_col) |> dplyr::mutate(category=label),
-      palette = setNames(generate_colors(n = length(unique(
-        na.omit(df_print[[cat_col]])
-      )), palette = palette),unique(
-        na.omit(df_print[[cat_col]])
-      ))
-  )
-
-  # calendR::calendR(
-  #   from = date_start,
-  #   to = date_end,
-  #   # view = "month",
-  #   title = glue::glue(
-  #     "Schedule ({as.character(date_start)} to {as.character(date_end)})"
-  #   ),
-  #   subtitle = paste("Printed on", date_start),
-  #   # text = labels,
-  #   # text.pos = 1:30,
-  #   week.number = TRUE,
-  #   # year = lubridate::year(start),
-  #   # month = lubridate::month(start),
-  #   start = "M",
-  #   legend.pos = "bottom",
-  #   text.size = 12,
-  #   # events = dplyr::rename(df_print,label=!!cat_col) |> dplyr::mutate(category=label),
-  #   special.days = df_print[[cat_col]],
-  #   # palette = setNames(generate_colors(n = length(unique(
-  #   #   na.omit(df_print[[cat_col]])
-  #   # )), palette = palette),unique(
-  #   #   na.omit(df_print[[cat_col]])
-  #   # ))
-  #   special.col = generate_colors(n = length(unique(
-  #     na.omit(df_print[[cat_col]])
-  #   )), palette = palette)
-  #   # RColorBrewer::brewer.pal(, "Spectral")
+  # calendR(
+  #     from = date_start,
+  #     to = date_end,
+  #     view = "month",
+  #     title = glue::glue(
+  #         "Schedule ({as.character(date_start)} to {as.character(date_end)})"
+  #     ),
+  #     subtitle = paste("Printed on", date_start),
+  #     week.number = TRUE,
+  #     start = "M",
+  #     legend.pos = "bottom",
+  #     events = dplyr::rename(df_print,label=!!cat_col) |> dplyr::mutate(category=label),
+  #     palette = setNames(generate_colors(n = length(unique(
+  #       na.omit(df_print[[cat_col]])
+  #     )), palette = palette),unique(
+  #       na.omit(df_print[[cat_col]])
+  #     ))
   # )
+
+  calendR::calendR(
+    from = date_start,
+    to = date_end,
+    # view = "month",
+    title = glue::glue(
+      "Schedule ({as.character(date_start)} to {as.character(date_end)})"
+    ),
+    subtitle = paste("Printed on", date_start),
+    # text = labels,
+    # text.pos = 1:30,
+    week.number = TRUE,
+    # year = lubridate::year(start),
+    # month = lubridate::month(start),
+    start = "M",
+    legend.pos = "bottom",
+    text.size = 12,
+    # events = dplyr::rename(df_print,label=!!cat_col) |> dplyr::mutate(category=label),
+    special.days = df_print[[cat_col]],
+    # palette = setNames(generate_colors(n = length(unique(
+    #   na.omit(df_print[[cat_col]])
+    # )), palette = palette),unique(
+    #   na.omit(df_print[[cat_col]])
+    # ))
+    special.col = generate_colors(n = length(unique(
+      na.omit(df_print[[cat_col]])
+    )), palette = palette)
+    # RColorBrewer::brewer.pal(, "Spectral")
+  )
 }
 
 ggplot2pdf <- function(p,
