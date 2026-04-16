@@ -589,7 +589,7 @@ plot_calendar <- function(
   wd_short  <- substring(wd_labels, 1, 3)
 
   # ── Build plot ────────────────────────────────────────────────────────────
-  p <- ggplot2::ggplot(t2, ggplot2::aes(x = dow, y = woy)) +
+  p <- ggplot2::ggplot(t2, ggplot2::aes(x = dow, y = woy+1)) +
     ggplot2::geom_tile(
       ggplot2::aes(fill = tile_fill),
       color = col, linewidth = lwd, linetype = lty
@@ -606,7 +606,7 @@ plot_calendar <- function(
     # First-of-month mini-label
     ggplot2::geom_text(
       data = dplyr::filter(t2, as.integer(format(date, "%d")) == 1L),
-      ggplot2::aes(label = toupper(format(date, "%b")), y = woy - 0.3),
+      ggplot2::aes(label = toupper(format(date, "%b")), y = woy+.7),
       size = day.size * 0.7, color = weeknames.col,
       family = font.family, fontface = "bold"
     ) +
