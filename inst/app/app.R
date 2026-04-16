@@ -19,7 +19,7 @@ ui <- shiny::fluidPage(
     "Udskriv oversigt over arbejdstider for de næste dage ud fra det delte kalender link fra MyPlan"
   ),
   shiny::p(
-      "Husk at når du printer kalenderen får du et øjebliksbillede. Det kan være rart, men du skal være opmærksom på ændringer der kommer til."
+    "Husk at når du printer kalenderen får du et øjebliksbillede. Det kan være rart, men du skal være opmærksom på ændringer der kommer til."
   ),
   shiny::p(
     paste(
@@ -75,11 +75,13 @@ ui <- shiny::fluidPage(
     shiny::plotOutput("calendar", height = "60vh"),
     shiny::downloadButton(outputId = "download", label = "Hent A4"),
     shiny::br(),
-    shiny::br(),
-    shiny::p(
-      "Jeg har naturligvis gjort mig umage, men jeg tager intet ansvar for programmets indhold eller funktion, og ved at bruge det accepterer du naturligvis at det er dit eget ansvar at møde til tiden."
-    ),
-  )
+    shiny::br()
+
+  ),
+  shiny::p(
+    "Jeg har naturligvis gjort mig umage, men jeg tager intet ansvar for programmets indhold eller funktion, og ved at bruge det accepterer du naturligvis at det er dit eget ansvar at møde til tiden."
+  ),
+  shiny::br()
 
 )
 
