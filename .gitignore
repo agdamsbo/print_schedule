@@ -6,3 +6,4 @@
 rsconnect/
 *.csv
 .DS_Store
+deploy
