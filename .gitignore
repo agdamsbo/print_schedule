@@ -6,4 +6,8 @@
 rsconnect/
 *.csv
 .DS_Store
+<<<<<<< HEAD
 deploy
+=======
+deploy/
+>>>>>>> 12099e9 (ignore)
