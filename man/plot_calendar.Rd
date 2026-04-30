@@ -50,7 +50,8 @@ plot_calendar(
   legend.title = "",
   bg.col = "white",
   margin = 1,
-  ncol
+  ncol,
+  source_caption = NULL
 )
 }
 \arguments{

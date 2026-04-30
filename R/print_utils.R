@@ -71,9 +71,10 @@ print_events <- function(data,
     to = date_end,
     view = type,
     day.size = 5,
-    title = glue::glue(
-      "Schedule ({as.character(date_start)} to {as.character(date_end)})"
-    ),
+    title = "Arbejdsplan",
+    # title = glue::glue(
+    #   "Arbejdsplan ({as.character(date_start)} to {as.character(date_end)})"
+    # ),
     subtitle = paste("Printed on", date_start),
     week.number = TRUE,
     start = "M",
@@ -85,7 +86,8 @@ print_events <- function(data,
         stats::na.omit(df_print[[cat_col]])
       )), palette = palette),
       unique(stats::na.omit(df_print[[cat_col]]))
-    )
+    ),
+    source_caption = "Printet fra 'agdamsbo.github.io/PrintSchedule'"
   )
 }
 

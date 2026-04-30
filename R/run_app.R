@@ -8,7 +8,7 @@
 #'
 #' @examples
 #' \dontrun{
-#' PrintSchedule::run_app()
+#' run_app()
 #' }
 #'
 #' @export
