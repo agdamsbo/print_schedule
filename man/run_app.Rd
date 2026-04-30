@@ -16,7 +16,7 @@ Launches the Shiny app for printing work schedules from shared .ics calendar fil
 }
 \examples{
 \dontrun{
-PrintSchedule::run_app()
+run_app()
 }
 
 }

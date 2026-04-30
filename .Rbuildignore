@@ -9,3 +9,5 @@
 =======
 ^deploy$
 >>>>>>> 12099e9 (ignore)
+^\.positai$
+^\.claude$

@@ -1,3 +1,8 @@
+# PrintSchedule 2026.4.6
+
+Alt på dansk.
+Export with Danish header. Text feedback on events and days covered. Minor UI revisions. Link in print.
+
 # PrintSchedule 2026.4.5
 
 Week-based plotting.

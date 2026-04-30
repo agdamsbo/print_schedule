@@ -1,6 +1,6 @@
 Package: PrintSchedule
 Title: Print Work Schedules from Shared Calendar Files
-Version: 26.4.5
+Version: 26.4.6
 Authors@R:
     person("Andreas Gammelgaard", "Damsbo", email = "andreas@gdamsbo.dk", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-7559-1154"))
