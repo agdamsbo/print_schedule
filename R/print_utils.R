@@ -29,66 +29,62 @@
 #'
 #' @seealso [plot_calendar()] for more calendar options.
 #'
-#' @import dplyr
-#' @importFrom lubridate days
-#' @importFrom glue glue
-#' @importFrom tidyselect all_of
 #' @export
 print_events <- function(data,
-                         start = Sys.Date(),
-                         length = NULL,
+                         start     = Sys.Date(),
+                         length    = NULL,
                          start_col = "start_date",
-                         cat_col = "EventType",
-                         palette = "Spectral",
-                         type = "month") {
-  df_cat_min <- data |>
-    dplyr::mutate(start_date = as.Date(format(DTSTART, "%Y-%m-%d"))) |>
-    dplyr::select(
-      tidyselect::all_of(c(start_col, cat_col))
-    )
+                         cat_col   = "EventType",
+                         palette   = "Spectral",
+                         type      = "month") {
 
-  date_start <- start
-  if (is.null(length)) {
-    date_end <- max(df_cat_min$start_date)
+  date_start        <- as.Date(start)
+  data$start_date   <- as.Date(format(data$DTSTART, "%Y-%m-%d"))
+  df_cat_min        <- data[, c("start_date", cat_col)]
+
+  date_end <- if (is.null(length)) {
+    max(df_cat_min$start_date)
   } else if (is.numeric(length)) {
-    if (length > 150)
-      length <- 150
-    date_end <- date_start + lubridate::days(length)
+    date_start + as.integer(min(length, 90L))
   } else {
-    date_end <- date_start + lubridate::days(30)
+    date_start + 30L
   }
 
-  df_print <- dplyr::full_join(data.frame(date = as.Date(seq(
-    date_start, date_end, by = 1
-  ))),
-  df_cat_min,
-  by = dplyr::join_by(date == !!start_col)) |>
-    dplyr::filter(date >= date_start &
-                    date <= date_end)
+  # Filter before join
+  df_cat_min <- df_cat_min[
+    df_cat_min$start_date >= date_start & df_cat_min$start_date <= date_end,
+  ]
 
-  plot_calendar(
-    from = date_start,
-    to = date_end,
-    view = type,
+  # Full join via merge — all.x keeps every day in the sequence
+  date_seq <- data.frame(date = seq(date_start, date_end, by = 1L))
+  df_print <- merge(date_seq, df_cat_min,
+                    by.x = "date", by.y = "start_date",
+                    all.x = TRUE)
+
+  cats <- unique(df_print[[cat_col]][!is.na(df_print[[cat_col]])])
+  if (length(cats) == 0L) return(NULL)
+
+  # Rename cat_col -> label and add category column
+  names(df_print)[names(df_print) == cat_col] <- "label"
+  df_print$category <- df_print$label
+
+  print(plot_calendar(
+    from     = date_start,
+    to       = date_end,
+    view     = type,
     day.size = 5,
-    title = "Arbejdsplan",
-    # title = glue::glue(
-    #   "Arbejdsplan ({as.character(date_start)} to {as.character(date_end)})"
-    # ),
-    subtitle = paste("Printed on", date_start),
-    week.number = TRUE,
-    start = "M",
-    legend.pos = "bottom",
-    events = dplyr::rename(df_print, label = !!cat_col) |> dplyr::mutate(category =
-                                                                           label),
-    palette = stats::setNames(
-      generate_colors(n = length(unique(
-        stats::na.omit(df_print[[cat_col]])
-      )), palette = palette),
-      unique(stats::na.omit(df_print[[cat_col]]))
+    title    = "Arbejdsplan",
+    subtitle = paste("Printet den", format(date_start, "%d. %b %Y")),
+    week.number    = TRUE,
+    start          = "M",
+    legend.pos     = "bottom",
+    events         = df_print,
+    palette        = stats::setNames(
+      generate_colors(n = length(cats), palette = palette),
+      cats
     ),
     source_caption = "Printet fra 'agdamsbo.github.io/PrintSchedule'"
-  )
+  ))
 }
 
 #' Save ggplot to PDF

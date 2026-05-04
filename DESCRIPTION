@@ -11,15 +11,12 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Imports:
     calendar,
-    dplyr,
     ggplot2,
-    glue,
     grDevices,
-    lubridate,
     RColorBrewer,
     shiny,
     stats,
-    tidyselect,
+    shinyjs,
     viridisLite
 Suggests:
     rsconnect,

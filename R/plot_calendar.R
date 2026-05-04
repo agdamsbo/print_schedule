@@ -14,10 +14,8 @@
 #'   day positions (monthly view only).
 #' @param events  A data.frame with columns `date` (Date or "YYYY-MM-DD"),
 #'   `label` (character), and optionally `category` (character).
-#' @param palette  Named character vector mapping category names to colours,
-#'   e.g. `c(Holiday = "#4A90D9", Meeting = "#E86C3A")`.
-#' @param special.days  Integer vector of day indices to highlight, or
-#'   `"weekend"`. Ignored when `events` is supplied.
+#' @param palette  Named character vector mapping category names to colours.
+#' @param special.days  Integer vector of day indices to highlight, or `"weekend"`.
 #' @param special.col  Highlight colour (or upper gradient colour).
 #' @param gradient  Logical. Treat `special.days` as a continuous gradient.
 #' @param low.col  Lower gradient / background tile colour (default `"white"`).
@@ -26,34 +24,18 @@
 #' @param day.size,days.col  Day-number font size and colour.
 #' @param weeknames,weeknames.col,weeknames.size  Day-of-week header labels,
 #'   colour, and size.
-#' @param week.number,week.number.col,week.number.size  Show ISO week numbers
-#'   on the y-axis.
+#' @param week.number,week.number.col,week.number.size  Show ISO week numbers.
 #' @param monthnames,months.size,months.col,months.pos,mbg.col  Month label
 #'   customisation (yearly view).
 #' @param legend.pos,legend.title  Legend position and title.
 #' @param bg.col  Background colour.
 #' @param margin  Numeric margin multiplier.
 #' @param ncol  Number of facet columns (yearly / week-block view).
+#' @param source_caption Optional caption string.
 #'
 #' @return A \pkg{ggplot2} object.
 #'
-#' @examples
-#' # Month view
-#' plot_calendar(year = 2024, month = 6)
-#'
-#' # Week-block view
-#' plot_calendar(from = "2024-06-01", to = "2024-08-31", view = "week")
-#'
-#' # With events
-#' events <- data.frame(
-#'   date = as.Date(c("2024-06-15", "2024-06-20")),
-#'   label = c("Meeting", "Holiday"),
-#'   category = c("Work", "Personal")
-#' )
-#' plot_calendar(year = 2024, month = 6, events = events)
-#'
 #' @import ggplot2
-#' @import dplyr
 #' @export
 plot_calendar <- function(year        = as.integer(format(Sys.Date(), "%Y")),
                           month       = NULL,
@@ -116,6 +98,7 @@ plot_calendar <- function(year        = as.integer(format(Sys.Date(), "%Y")),
                           ncol,
 
                           source_caption = NULL) {
+
   # ── Argument validation ────────────────────────────────────────────────────
   view        <- match.arg(view)
   start       <- match.arg(start)
@@ -127,26 +110,19 @@ plot_calendar <- function(year        = as.integer(format(Sys.Date(), "%Y")),
     stop("Provide an end date with the 'to' argument.")
   if (is.null(from) && !is.null(to))
     stop("Provide a start date with the 'from' argument.")
-  if (!is.null(month) &&
-      (!is.numeric(month) || month < 1 || month > 12))
+  if (!is.null(month) && (!is.numeric(month) || month < 1 || month > 12))
     stop("'month' must be a number between 1 and 12.")
 
   # ── Default ncol ──────────────────────────────────────────────────────────
   if (missing(ncol))
-    ncol <- if (orientation == "landscape")
-      4L
-  else
-    3L
+    ncol <- if (orientation == "landscape") 4L else 3L
 
   # ── Week-day names ────────────────────────────────────────────────────────
   if (missing(weeknames)) {
-    cap1      <- function(x) {
-      substr(x, 1, 1) <- toupper(substr(x, 1, 1))
-      x
-    }
-    ref       <- seq(as.Date("2020-08-23"), by = 1, len = 7)   # Sun..Sat
-    wd        <- cap1(weekdays(ref))
-    weeknames <- c(wd[2:7], wd[1])                              # Mon..Sun
+    cap1 <- function(x) { substr(x, 1, 1) <- toupper(substr(x, 1, 1)); x }
+    ref  <- seq(as.Date("2020-08-23"), by = 1, len = 7)
+    wd   <- cap1(weekdays(ref))
+    weeknames <- c(wd[2:7], wd[1])
   }
 
   # ── Date range ────────────────────────────────────────────────────────────
@@ -165,53 +141,49 @@ plot_calendar <- function(year        = as.integer(format(Sys.Date(), "%Y")),
     maxdate <- as.Date(sprintf("%d-12-31", year))
   }
 
-  dates <- seq(mindate, maxdate, by = "1 day")
+  dates  <- seq(mindate, maxdate, by = "1 day")
+  n_days <- length(dates)
 
-  # ── Month-name factor levels (locale-aware) ────────────────────────────
-  month_levels <- format(seq(as.Date("2016-01-01"), as.Date("2016-12-01"), by = "month"), "%B")
+  # ── Month-name factor levels ───────────────────────────────────────────────
+  month_levels <- format(
+    seq(as.Date("2016-01-01"), as.Date("2016-12-01"), by = "month"), "%B"
+  )
 
   # ── Day-of-week helpers ───────────────────────────────────────────────────
   dow_offset <- if (start == "M") {
-    function(d)
-      ifelse(as.integer(format(d, "%w")) == 0L, 6L, as.integer(format(d, "%w")) - 1L)
+    function(d) ifelse(as.integer(format(d, "%w")) == 0L,
+                       6L, as.integer(format(d, "%w")) - 1L)
   } else {
-    function(d)
-      as.integer(format(d, "%w"))
+    function(d) as.integer(format(d, "%w"))
   }
-  woy_fmt <- if (start == "M")
-    "%W"
-  else
-    "%U"
+  woy_fmt <- if (start == "M") "%W" else "%U"
 
-  # ── Base tibble ───────────────────────────────────────────────────────────
-  t1 <- dplyr::tibble(date = dates) |>
-    dplyr::mutate(
-      dow       = dow_offset(date),
-      woy       = as.integer(format(date, woy_fmt)),
-      yr        = as.integer(format(date, "%Y")),
-      mon_nm    = format(date, "%B"),
-      month_fac = toupper(factor(
-        mon_nm, levels = month_levels, ordered = TRUE
-      )),
-      monlabel  = if (!is.null(month))
-        paste(month_fac, yr)
-      else
-        as.character(month_fac),
-      is_weekend = if (start == "M")
-        dow %in% c(5L, 6L)
-      else
-        dow %in% c(0L, 6L)
-    ) |>
-    dplyr::mutate(monlabel = factor(monlabel, levels = unique(monlabel)))
+  # ── Base data.frame ───────────────────────────────────────────────────────
+  t1            <- data.frame(date = dates, stringsAsFactors = FALSE)
+  t1$dow        <- dow_offset(dates)
+  t1$woy        <- as.integer(format(dates, woy_fmt))
+  t1$yr         <- as.integer(format(dates, "%Y"))
+  t1$mon_nm     <- format(dates, "%B")
+  t1$month_fac  <- toupper(as.character(
+    factor(t1$mon_nm, levels = month_levels, ordered = TRUE)
+  ))
+  t1$monlabel   <- if (!is.null(month)) {
+    paste(t1$month_fac, t1$yr)
+  } else {
+    as.character(t1$month_fac)
+  }
+  t1$monlabel   <- factor(t1$monlabel, levels = unique(t1$monlabel))
+  t1$is_weekend <- if (start == "M") {
+    t1$dow %in% c(5L, 6L)
+  } else {
+    t1$dow %in% c(0L, 6L)
+  }
 
-  # ── Fill vector (special.days / gradient path) ────────────────────────────
-  n_days <- length(dates)
-
+  # ── Fill vector ───────────────────────────────────────────────────────────
   if (!is.null(special.days)) {
     if (identical(special.days, "weekend")) {
       fills <- as.numeric(t1$is_weekend)
     } else if (is.numeric(special.days) && !gradient) {
-      # Index-based highlighting: build 0/1 vector
       fills <- rep(0, n_days)
       idx   <- as.integer(special.days)
       idx   <- idx[idx >= 1L & idx <= n_days]
@@ -221,54 +193,45 @@ plot_calendar <- function(year        = as.integer(format(Sys.Date(), "%Y")),
         stop("When gradient = TRUE, 'special.days' length must equal the number of days.")
       fills <- special.days
     } else {
-      stop(
-        "'special.days' must be 'weekend', an integer index vector, or a numeric gradient vector."
-      )
+      stop("'special.days' must be 'weekend', an integer index vector, or a numeric gradient vector.")
     }
   } else {
-    fills     <- rep(0, n_days)
-    special.col <- low.col   # no highlights → render all tiles uniformly
+    fills       <- rep(0, n_days)
+    special.col <- low.col
   }
-
-  t1 <- dplyr::mutate(t1, fill = fills)
+  t1$fill <- fills
 
   # ── Day text annotations ──────────────────────────────────────────────────
   ann_texts <- character(n_days)
   if (!is.null(text) && !is.null(text.pos)) {
     ann_texts[text.pos] <- text
   } else {
-    if (!is.null(text)     &&
-        is.null(text.pos))
-      warning("Specify day positions with 'text.pos'.")
-    if (is.null(text)      &&
-        !is.null(text.pos))
-      warning("Provide text with the 'text' argument.")
+    if (!is.null(text)     && is.null(text.pos)) warning("Specify day positions with 'text.pos'.")
+    if ( is.null(text)     && !is.null(text.pos)) warning("Provide text with the 'text' argument.")
   }
-  t1 <- dplyr::mutate(t1, ann_text = ann_texts)
+  t1$ann_text <- ann_texts
 
   # ── Events ────────────────────────────────────────────────────────────────
   has_events <- !is.null(events) && nrow(events) > 0
 
   if (has_events) {
-    events <- dplyr::mutate(events, date = as.Date(date))
-    if (!"category" %in% names(events))
-      events$category <- "Event"
-    if (!"label"    %in% names(events))
-      events$label    <- ""
+    events$date <- as.Date(events$date)
+    if (!"category" %in% names(events)) events$category <- "Event"
+    if (!"label"    %in% names(events)) events$label    <- ""
 
-    events <- dplyr::filter(events, date >= mindate, date <= maxdate)
+    events <- events[events$date >= mindate & events$date <= maxdate, ]
 
-    # Join event categories onto t1
-    ev_fill <- dplyr::select(events, date, category) |>
-      dplyr::distinct(date, .keep_all = TRUE)
-    t1 <- dplyr::left_join(t1, ev_fill, by = "date") |>
-      dplyr::mutate(fill = dplyr::if_else(!is.na(category), category, as.character(fill))) |>
-      dplyr::select(-category)
+    # Join category onto t1 (first occurrence per date only)
+    ev_fill      <- events[!duplicated(events$date), c("date", "category")]
+    t1           <- merge(t1, ev_fill, by = "date", all.x = TRUE)
+    t1           <- t1[order(t1$date), ]
+    t1$fill      <- ifelse(!is.na(t1$category),
+                           t1$category, as.character(t1$fill))
+    t1$category  <- NULL
 
-    # Build default palette if none supplied
     if (is.null(palette)) {
       cats    <- unique(events$category)
-      colours <- grDevices::hcl.colors(max(length(cats), 1L), palette = "Set 1")
+      colours <- grDevices::hcl.colors(max(length(cats), 1L), palette = "Set 2")
       palette <- stats::setNames(colours, cats)
     }
   }
@@ -276,52 +239,44 @@ plot_calendar <- function(year        = as.integer(format(Sys.Date(), "%Y")),
   # ── Dispatch ──────────────────────────────────────────────────────────────
   if (view == "week") {
     p <- .build_week_view(
-      t1            = t1,
-      dates         = dates,
-      mindate       = mindate,
-      maxdate       = maxdate,
-      start         = start,
-      ncol          = ncol,
-      title         = if (missing(title))
-        NULL
-      else
-        title,
-      title.size    = title.size,
-      title.col     = title.col,
-      subtitle      = subtitle,
-      subtitle.size = subtitle.size,
-      subtitle.col  = subtitle.col,
-      weeknames     = weeknames,
-      weeknames.col = weeknames.col,
-      weeknames.size = weeknames.size,
-      day.size      = day.size,
-      days.col      = days.col,
-      col           = col,
-      lwd           = lwd,
-      lty           = lty,
-      low.col       = low.col,
-      special.col   = special.col,
-      week.number.col  = if (week.number)
-        week.number.col
-      else
-        "transparent",
+      t1               = t1,
+      dates            = dates,
+      mindate          = mindate,
+      maxdate          = maxdate,
+      start            = start,
+      ncol             = ncol,
+      title            = if (missing(title)) NULL else title,
+      title.size       = title.size,
+      title.col        = title.col,
+      subtitle         = subtitle,
+      subtitle.size    = subtitle.size,
+      subtitle.col     = subtitle.col,
+      weeknames        = weeknames,
+      weeknames.col    = weeknames.col,
+      weeknames.size   = weeknames.size,
+      day.size         = day.size,
+      days.col         = days.col,
+      col              = col,
+      lwd              = lwd,
+      lty              = lty,
+      low.col          = low.col,
+      special.col      = special.col,
+      week.number.col  = if (week.number) week.number.col else "transparent",
       week.number.size = week.number.size,
-      font.family   = font.family,
-      font.style    = font.style,
-      legend.pos    = legend.pos,
-      legend.title  = legend.title,
-      bg.col        = bg.col,
-      margin        = margin,
-      events        = events,
-      palette       = palette,
-      has_events    = has_events
+      font.family      = font.family,
+      font.style       = font.style,
+      legend.pos       = legend.pos,
+      legend.title     = legend.title,
+      bg.col           = bg.col,
+      margin           = margin,
+      events           = events,
+      palette          = palette,
+      has_events       = has_events
     )
   } else {
     if (missing(title)) {
       title <- if (!is.null(from)) {
-        paste0(format(mindate, "%m/%Y"),
-               " - ",
-               format(maxdate, "%m/%Y"))
+        paste0(format(mindate, "%m/%Y"), " - ", format(maxdate, "%m/%Y"))
       } else if (is.null(month)) {
         year
       } else {
@@ -330,59 +285,53 @@ plot_calendar <- function(year        = as.integer(format(Sys.Date(), "%Y")),
     }
 
     p <- .build_month_view(
-      t1            = t1,
-      dates         = dates,
-      month         = month,
-      ncol          = ncol,
-      start         = start,
-      weeknames     = weeknames,
-      weeknames.col = weeknames.col,
-      weeknames.size = weeknames.size,
-      day.size      = day.size,
-      days.col      = days.col,
-      text.col      = text.col,
-      col           = col,
-      lwd           = lwd,
-      lty           = lty,
-      low.col       = low.col,
-      special.col   = special.col,
-      gradient      = gradient,
-      title         = title,
-      title.size    = title.size,
-      title.col     = title.col,
-      subtitle      = subtitle,
-      subtitle.size = subtitle.size,
-      subtitle.col  = subtitle.col,
-      monthnames    = if (missing(monthnames))
-        NULL
-      else
-        monthnames,
-      months.size   = months.size,
-      months.col    = months.col,
-      months.pos    = months.pos,
-      mbg.col       = mbg.col,
-      week.number   = week.number,
+      t1               = t1,
+      dates            = dates,
+      month            = month,
+      ncol             = ncol,
+      start            = start,
+      weeknames        = weeknames,
+      weeknames.col    = weeknames.col,
+      weeknames.size   = weeknames.size,
+      day.size         = day.size,
+      days.col         = days.col,
+      text.col         = text.col,
+      col              = col,
+      lwd              = lwd,
+      lty              = lty,
+      low.col          = low.col,
+      special.col      = special.col,
+      gradient         = gradient,
+      title            = title,
+      title.size       = title.size,
+      title.col        = title.col,
+      subtitle         = subtitle,
+      subtitle.size    = subtitle.size,
+      subtitle.col     = subtitle.col,
+      monthnames       = if (missing(monthnames)) NULL else monthnames,
+      months.size      = months.size,
+      months.col       = months.col,
+      months.pos       = months.pos,
+      mbg.col          = mbg.col,
+      week.number      = week.number,
       week.number.col  = week.number.col,
       week.number.size = week.number.size,
-      font.family   = font.family,
-      font.style    = font.style,
-      legend.pos    = legend.pos,
-      legend.title  = legend.title,
-      bg.col        = bg.col,
-      margin        = margin,
-      events        = events,
-      palette       = palette,
-      has_events    = has_events
+      font.family      = font.family,
+      font.style       = font.style,
+      legend.pos       = legend.pos,
+      legend.title     = legend.title,
+      bg.col           = bg.col,
+      margin           = margin,
+      events           = events,
+      palette          = palette,
+      has_events       = has_events
     )
   }
 
-  if (!is.null(source_caption)) {
-    p <- p +
-      ggplot2::labs(caption = source_caption)
-  }
+  if (!is.null(source_caption))
+    p <- p + ggplot2::labs(caption = source_caption)
 
   invisible(p)
-
 }
 
 
@@ -390,54 +339,27 @@ plot_calendar <- function(year        = as.integer(format(Sys.Date(), "%Y")),
 #  INTERNAL: month / year view
 # ══════════════════════════════════════════════════════════════════════════════
 
-.build_month_view <- function(t1,
-                              dates,
-                              month,
-                              ncol,
-                              start,
-                              weeknames,
-                              weeknames.col,
-                              weeknames.size,
-                              day.size,
-                              days.col,
-                              text.col,
-                              col,
-                              lwd,
-                              lty,
-                              low.col,
-                              special.col,
-                              gradient,
-                              title,
-                              title.size,
-                              title.col,
-                              subtitle,
-                              subtitle.size,
-                              subtitle.col,
-                              monthnames,
-                              months.size,
-                              months.col,
-                              months.pos,
-                              mbg.col,
-                              week.number,
-                              week.number.col,
-                              week.number.size,
-                              font.family,
-                              font.style,
-                              legend.pos,
-                              legend.title,
-                              bg.col,
-                              margin,
-                              events,
-                              palette,
-                              has_events) {
-  # Row position within each month (top = largest y)
-  t2 <- t1 |>
-    dplyr::group_by(monlabel) |>
-    dplyr::mutate(local_woy = woy - min(woy),
-                  y         = max(local_woy) - local_woy + 1L) |>
-    dplyr::ungroup()
+.build_month_view <- function(t1, dates, month, ncol, start,
+                              weeknames, weeknames.col, weeknames.size,
+                              day.size, days.col, text.col,
+                              col, lwd, lty, low.col, special.col, gradient,
+                              title, title.size, title.col,
+                              subtitle, subtitle.size, subtitle.col,
+                              monthnames, months.size, months.col,
+                              months.pos, mbg.col,
+                              week.number, week.number.col, week.number.size,
+                              font.family, font.style,
+                              legend.pos, legend.title, bg.col, margin,
+                              events, palette, has_events) {
 
-  # Optional custom month names
+  # Row position within each month ──────────────────────────────────────────
+  t2           <- t1
+  mon_min_woy  <- ave(t2$woy, t2$monlabel, FUN = min)
+  mon_max_lwoy <- ave(t2$woy - mon_min_woy, t2$monlabel, FUN = max)
+  t2$local_woy <- t2$woy - mon_min_woy
+  t2$y         <- mon_max_lwoy - t2$local_woy + 1L
+
+  # Optional custom month names ─────────────────────────────────────────────
   if (!is.null(monthnames)) {
     lvls <- levels(t2$monlabel)
     if (length(monthnames) != length(lvls))
@@ -445,187 +367,81 @@ plot_calendar <- function(year        = as.integer(format(Sys.Date(), "%Y")),
     levels(t2$monlabel) <- monthnames
   }
 
-  # ── Fill scale helper ──────────────────────────────────────────────────────
-  # After events are merged, fill may be character (category names) or numeric.
+  # Fill scale ───────────────────────────────────────────────────────────────
   fill_is_char <- is.character(t2$fill)
 
   fill_scale <- if (has_events) {
-    ggplot2::scale_fill_manual(
-      values = palette,
-      name = legend.title,
-      na.value = low.col,
-      na.translate = FALSE
-    )
+    ggplot2::scale_fill_manual(values = palette, name = legend.title,
+                               na.value = low.col, na.translate = FALSE)
   } else if (fill_is_char) {
-    ggplot2::scale_fill_manual(
-      values = special.col,
-      name = legend.title,
-      na.value = low.col,
-      na.translate = FALSE
-    )
+    ggplot2::scale_fill_manual(values = special.col, name = legend.title,
+                               na.value = low.col, na.translate = FALSE)
   } else {
-    ggplot2::scale_fill_gradient(
-      low = low.col,
-      high = special.col,
-      name = legend.title,
-      na.value = low.col
-    )
+    ggplot2::scale_fill_gradient(low = low.col, high = special.col,
+                                 name = legend.title, na.value = low.col)
   }
 
-  # ── Single-month layout ───────────────────────────────────────────────────
+  # Single-month layout ──────────────────────────────────────────────────────
   if (!is.null(month)) {
-    wd_ordered <- if (start == "S")
-      c(weeknames[7], weeknames[1:6])
-    else
-      weeknames
-    df_header  <- dplyr::tibble(
+    wd_ordered <- if (start == "S") c(weeknames[7], weeknames[1:6]) else weeknames
+    df_header  <- data.frame(
       week  = wd_ordered,
       pos.x = 0:6,
-      pos.y = max(t2$local_woy) + 1.75
+      pos.y = max(t2$local_woy) + 1.75,
+      stringsAsFactors = FALSE
     )
 
     p <- ggplot2::ggplot(t2, ggplot2::aes(dow, y)) +
-      ggplot2::geom_tile(
-        ggplot2::aes(fill = fill),
-        color = col,
-        linewidth = lwd,
-        linetype = lty
-      ) +
+      ggplot2::geom_tile(ggplot2::aes(fill = fill),
+                         color = col, linewidth = lwd, linetype = lty) +
       fill_scale +
       ggplot2::ggtitle(title) +
       ggplot2::labs(subtitle = subtitle, fill = legend.title) +
-      ggplot2::geom_text(
-        data = df_header,
-        ggplot2::aes(label = week, x = pos.x, y = pos.y),
-        size = weeknames.size,
-        family = font.family,
-        color = weeknames.col,
-        fontface = font.style
-      ) +
-      ggplot2::geom_text(
-        ggplot2::aes(label = ann_text),
-        color = text.col,
-        size = 3,
-        family = font.family
-      ) +
+      ggplot2::geom_text(data = df_header,
+                         ggplot2::aes(label = week, x = pos.x, y = pos.y),
+                         size = weeknames.size, family = font.family,
+                         color = weeknames.col, fontface = font.style) +
+      ggplot2::geom_text(ggplot2::aes(label = ann_text),
+                         color = text.col, size = 3, family = font.family) +
       ggplot2::scale_y_continuous(
         expand = c(0.05, 0.05),
         labels = rev(unique(t2$woy)),
         breaks = seq_len(length(unique(t2$woy)))
       ) +
       ggplot2::geom_text(
-        ggplot2::aes(
-          label = as.integer(format(date, "%d")),
-          x = dow,
-          y = y
-        ),
-        size = day.size,
-        family = font.family,
-        color = days.col,
-        fontface = font.style,
-        hjust = 0.5
+        ggplot2::aes(label = as.integer(format(date, "%d")), x = dow, y = y),
+        size = day.size, family = font.family, color = days.col,
+        fontface = font.style, hjust = 0.5
       ) +
-      .calendar_theme_single(
-        bg.col,
-        weeknames.col,
-        weeknames.size,
-        week.number.col,
-        week.number.size,
-        title.size,
-        title.col,
-        subtitle.size,
-        subtitle.col,
-        legend.pos,
-        margin,
-        font.family,
-        font.style
-      )
-
-    # Event text overlays
-    if (has_events) {
-      ev <- dplyr::inner_join(t2, events, by = "date")
-      if (nrow(ev) > 0) {
-        p
-
-        # p <- p +
-        #   ggplot2::geom_text(
-        #     data = ev,
-        #     ggplot2::aes(label = label),
-        #     size = 2.5, color = "white", vjust = 0.5
-        #   )
-      }
-    }
+      .calendar_theme_single(bg.col, weeknames.col, weeknames.size,
+                             week.number.col, week.number.size,
+                             title.size, title.col, subtitle.size, subtitle.col,
+                             legend.pos, margin, font.family, font.style)
 
   } else {
-    # ── Yearly / multi-month facet layout ────────────────────────────────────
-    wd_ordered  <- if (start == "S")
-      c(weeknames[7], weeknames[1:6])
-    else
-      weeknames
-    wd_short    <- substring(wd_ordered, 1, 3)
+    # Yearly / multi-month facet layout ──────────────────────────────────────
+    wd_ordered <- if (start == "S") c(weeknames[7], weeknames[1:6]) else weeknames
+    wd_short   <- substring(wd_ordered, 1, 3)
 
     p <- ggplot2::ggplot(t2, ggplot2::aes(dow, woy + 1)) +
-      ggplot2::geom_tile(
-        ggplot2::aes(fill = fill),
-        color = col,
-        linewidth = lwd,
-        linetype = lty
-      ) +
+      ggplot2::geom_tile(ggplot2::aes(fill = fill),
+                         color = col, linewidth = lwd, linetype = lty) +
       fill_scale +
-      ggplot2::facet_wrap( ~ monlabel, ncol = ncol, scales = "free") +
+      ggplot2::facet_wrap(~monlabel, ncol = ncol, scales = "free") +
       ggplot2::ggtitle(title) +
       ggplot2::labs(subtitle = subtitle, fill = legend.title) +
-      ggplot2::scale_x_continuous(
-        expand = c(0.01, 0.01),
-        position = "top",
-        breaks = 0:6,
-        labels = wd_short
-      ) +
-      ggplot2::scale_y_continuous(
-        expand = c(0.01, 0.01),
-        trans = "reverse",
-        breaks = sort(unique(t2$woy + 1))
-      ) +
-      ggplot2::geom_text(
-        ggplot2::aes(label = as.integer(format(date, "%d"))),
-        size = day.size,
-        family = font.family,
-        color = days.col,
-        fontface = font.style
-      ) +
-      .calendar_theme_yearly(
-        bg.col,
-        mbg.col,
-        months.col,
-        months.size,
-        months.pos,
-        weeknames.col,
-        weeknames.size,
-        week.number.col,
-        week.number.size,
-        title.size,
-        title.col,
-        subtitle.size,
-        subtitle.col,
-        legend.pos,
-        margin,
-        font.family,
-        font.style
-      )
-
-    # Event text overlays (yearly)
-    if (has_events) {
-      ev <- dplyr::inner_join(t2, events, by = "date")
-      if (nrow(ev) > 0) {
-        p
-        # p <- p +
-        #   ggplot2::geom_text(
-        #     data = ev,
-        #     ggplot2::aes(label = label),
-        #     size = 2, color = "white"
-        #   )
-      }
-    }
+      ggplot2::scale_x_continuous(expand = c(0.01, 0.01), position = "top",
+                                  breaks = 0:6, labels = wd_short) +
+      ggplot2::scale_y_continuous(expand = c(0.01, 0.01), trans = "reverse",
+                                  breaks = sort(unique(t2$woy + 1))) +
+      ggplot2::geom_text(ggplot2::aes(label = as.integer(format(date, "%d"))),
+                         size = day.size, family = font.family,
+                         color = days.col, fontface = font.style) +
+      .calendar_theme_yearly(bg.col, mbg.col, months.col, months.size,
+                             months.pos, weeknames.col, weeknames.size,
+                             week.number.col, week.number.size,
+                             title.size, title.col, subtitle.size, subtitle.col,
+                             legend.pos, margin, font.family, font.style)
   }
 
   p
@@ -636,175 +452,135 @@ plot_calendar <- function(year        = as.integer(format(Sys.Date(), "%Y")),
 #  INTERNAL: week-block view
 # ══════════════════════════════════════════════════════════════════════════════
 
-.build_week_view <- function(t1,
-                             dates,
-                             mindate,
-                             maxdate,
-                             start,
-                             ncol,
-                             title,
-                             title.size,
-                             title.col,
-                             subtitle,
-                             subtitle.size,
-                             subtitle.col,
-                             weeknames,
-                             weeknames.col,
-                             weeknames.size,
-                             day.size,
-                             days.col,
-                             col,
-                             lwd,
-                             lty,
-                             low.col,
-                             special.col,
-                             week.number.col,
-                             week.number.size,
-                             font.family,
-                             font.style,
-                             legend.pos,
-                             legend.title,
-                             bg.col,
-                             margin,
-                             events,
-                             palette,
-                             has_events,
+.build_week_view <- function(t1, dates, mindate, maxdate, start, ncol,
+                             title, title.size, title.col,
+                             subtitle, subtitle.size, subtitle.col,
+                             weeknames, weeknames.col, weeknames.size,
+                             day.size, days.col, col, lwd, lty,
+                             low.col, special.col,
+                             week.number.col, week.number.size,
+                             font.family, font.style,
+                             legend.pos, legend.title, bg.col, margin,
+                             events, palette, has_events,
                              weeks_per_block = 5L) {
-  # ── Assign week-blocks ────────────────────────────────────────────────────
+
+  # Assign week-blocks ───────────────────────────────────────────────────────
   all_weeks  <- sort(unique(t1$woy))
   n_blocks   <- ceiling(length(all_weeks) / weeks_per_block)
-  week_block <- setNames(rep(seq_len(n_blocks), each = weeks_per_block)[seq_along(all_weeks)], all_weeks)
+  week_block <- stats::setNames(
+    rep(seq_len(n_blocks), each = weeks_per_block)[seq_along(all_weeks)],
+    all_weeks
+  )
 
-  t2 <- t1 |>
-    dplyr::mutate(
-      block        = week_block[as.character(woy)],
-      row_in_block = match(woy, all_weeks) - (block - 1L) * weeks_per_block
-    )
+  t2              <- t1
+  t2$block        <- week_block[as.character(t2$woy)]
+  woy_rank        <- match(t2$woy, all_weeks)
+  t2$row_in_block <- woy_rank - (t2$block - 1L) * weeks_per_block
 
-  # Block date-range labels
-  block_ranges <- t2 |>
-    dplyr::group_by(block) |>
-    dplyr::summarise(lo = min(date),
-                     hi = max(date),
-                     .groups = "drop") |>
-    dplyr::mutate(blabel = sprintf("%s - %s", format(lo, "%d %b"), format(hi, "%d %b %Y")))
+  # Block date-range labels ──────────────────────────────────────────────────
+  block_lo <- tapply(t2$date, t2$block, min)
+  block_hi <- tapply(t2$date, t2$block, max)
+  block_ranges <- data.frame(
+    block  = as.integer(names(block_lo)),
+    lo     = as.Date(block_lo, origin = "1970-01-01"),
+    hi     = as.Date(block_hi, origin = "1970-01-01"),
+    stringsAsFactors = FALSE
+  )
+  block_ranges$blabel <- sprintf(
+    "%s - %s",
+    format(block_ranges$lo, "%d %b"),
+    format(block_ranges$hi, "%d %b %Y")
+  )
 
-  t2 <- dplyr::left_join(t2, dplyr::select(block_ranges, block, blabel), by = "block") |>
-    dplyr::mutate(blabel = factor(blabel, levels = unique(blabel)))
+  t2 <- merge(t2, block_ranges[, c("block", "blabel")], by = "block", all.x = TRUE)
+  t2 <- t2[order(t2$date), ]
+  t2$blabel <- factor(t2$blabel, levels = unique(t2$blabel))
 
-  # ── Event join ────────────────────────────────────────────────────────────
+  # Event join ───────────────────────────────────────────────────────────────
   if (has_events) {
-    ev_join <- dplyr::select(events,
-                             date,
-                             event_cat = category,
-                             event_label = label)
-    t2 <- dplyr::left_join(t2, ev_join, by = "date")
+    ev_join              <- events[, c("date", "category", "label")]
+    names(ev_join)[2:3]  <- c("event_cat", "event_label")
+    t2                   <- merge(t2, ev_join, by = "date", all.x = TRUE)
+    t2                   <- t2[order(t2$date), ]
   } else {
-    t2 <- dplyr::mutate(t2, event_cat = NA_character_, event_label = "")
+    t2$event_cat   <- NA_character_
+    t2$event_label <- ""
   }
 
-  # ── Tile fill ─────────────────────────────────────────────────────────────
-  t2 <- dplyr::mutate(
-    t2,
-    tile_fill = dplyr::case_when(
-      !is.na(event_cat)                    ~ event_cat,
-      is.numeric(fill) &
-        fill != 0         ~ "highlight",
-      is.character(fill) & !is.na(fill)    ~ fill,
-      TRUE                                 ~ NA_character_
+  # Tile fill ────────────────────────────────────────────────────────────────
+  t2$tile_fill <- ifelse(
+    !is.na(t2$event_cat),
+    t2$event_cat,
+    ifelse(
+      is.numeric(t2$fill) & t2$fill != 0,
+      "highlight",
+      ifelse(
+        is.character(t2$fill) & !is.na(t2$fill),
+        t2$fill,
+        NA_character_
+      )
     )
   )
 
   fill_values <- c(highlight = special.col)
-  if (has_events)
-    fill_values <- c(fill_values, palette)
+  if (has_events) fill_values <- c(fill_values, palette)
 
-  # ── Title ─────────────────────────────────────────────────────────────────
+  # Title ────────────────────────────────────────────────────────────────────
   if (is.null(title))
     title <- sprintf("%s \u2013 %s",
                      format(mindate, "%b %Y"),
                      format(maxdate, "%b %Y"))
 
-  wd_labels <- if (start == "S")
-    c(weeknames[7], weeknames[1:6])
-  else
-    weeknames
+  wd_labels <- if (start == "S") c(weeknames[7], weeknames[1:6]) else weeknames
   wd_short  <- substring(wd_labels, 1, 3)
 
-  # ── Build plot ────────────────────────────────────────────────────────────
+  # First-of-month subset ────────────────────────────────────────────────────
+  first_of_month <- t2[as.integer(format(t2$date, "%d")) == 1L, ]
+
+  # Build plot ───────────────────────────────────────────────────────────────
   p <- ggplot2::ggplot(t2, ggplot2::aes(x = dow, y = woy + 1)) +
-    ggplot2::geom_tile(
-      ggplot2::aes(fill = tile_fill),
-      color = col,
-      linewidth = lwd,
-      linetype = lty
-    ) +
-    ggplot2::scale_fill_manual(
-      values = fill_values,
-      na.value = low.col,
-      name = legend.title,
-      na.translate = FALSE
-    ) +
-    ggplot2::geom_text(
-      ggplot2::aes(label = as.integer(format(date, "%d"))),
-      size = day.size,
-      color = days.col,
-      family = font.family,
-      fontface = font.style,
-      hjust = 0.5
-    ) +
-    # First-of-month mini-label
-    ggplot2::geom_text(
-      data = dplyr::filter(t2, as.integer(format(date, "%d")) == 1L),
-      ggplot2::aes(label = toupper(format(date, "%b")), y = woy + .7),
-      size = day.size * 0.7,
-      color = weeknames.col,
-      family = font.family,
-      fontface = "bold"
-    ) +
-    ggplot2::facet_wrap( ~ blabel, ncol = ncol, scales = "free_y") +
+    ggplot2::geom_tile(ggplot2::aes(fill = tile_fill),
+                       color = col, linewidth = lwd, linetype = lty) +
+    ggplot2::scale_fill_manual(values = fill_values, na.value = low.col,
+                               name = legend.title, na.translate = FALSE) +
+    ggplot2::geom_text(ggplot2::aes(label = as.integer(format(date, "%d"))),
+                       size = day.size, color = days.col,
+                       family = font.family, fontface = font.style, hjust = 0.5) +
+    ggplot2::geom_text(data = first_of_month,
+                       ggplot2::aes(label = toupper(format(date, "%b")), y = woy + .7),
+                       size = day.size * 0.7, color = weeknames.col,
+                       family = font.family, fontface = "bold") +
+    ggplot2::facet_wrap(~blabel, ncol = ncol, scales = "free_y") +
     ggplot2::scale_y_continuous(
-      trans = "reverse",
-      breaks = function(x)
-        seq(floor(min(x)), ceiling(max(x)), by = 1)
+      trans  = "reverse",
+      breaks = function(x) seq(floor(min(x)), ceiling(max(x)), by = 1)
     ) +
-    ggplot2::scale_x_continuous(
-      breaks = 0:6,
-      labels = wd_short,
-      position = "top",
-      expand = c(0.01, 0.01)
-    ) +
+    ggplot2::scale_x_continuous(breaks = 0:6, labels = wd_short,
+                                position = "top", expand = c(0.01, 0.01)) +
     ggplot2::ggtitle(title) +
     ggplot2::labs(subtitle = subtitle) +
     ggplot2::theme(
-      panel.background  = ggplot2::element_rect(fill = NA, color = NA),
-      strip.background  = ggplot2::element_rect(fill = bg.col, color = bg.col),
-      plot.background   = ggplot2::element_rect(fill = bg.col),
-      panel.grid        = ggplot2::element_line(colour = bg.col),
-      strip.text.x      = ggplot2::element_text(
-        hjust = 0,
-        face = "bold",
-        color = "gray30",
-        size  = weeknames.size * 1.5
-      ),
-      axis.ticks        = ggplot2::element_blank(),
-      axis.title        = ggplot2::element_blank(),
-      axis.text.x       = ggplot2::element_text(colour = weeknames.col, size = weeknames.size * 2.25),
-      axis.text.y       = ggplot2::element_text(colour = week.number.col, size = week.number.size),
-      plot.title        = ggplot2::element_text(
-        hjust = 0.5,
-        size = title.size,
-        colour = title.col
-      ),
-      plot.subtitle     = ggplot2::element_text(
-        hjust = 0.5,
-        face = "italic",
-        colour = subtitle.col,
-        size = subtitle.size
-      ),
-      legend.position   = legend.pos,
-      plot.margin       = ggplot2::unit(c(margin, 0.5 * margin, margin, 0.5 * margin), "cm"),
-      text = ggplot2::element_text(family = font.family, face = font.style)
+      panel.background = ggplot2::element_rect(fill = NA,     color = NA),
+      strip.background = ggplot2::element_rect(fill = bg.col, color = bg.col),
+      plot.background  = ggplot2::element_rect(fill = bg.col),
+      panel.grid       = ggplot2::element_line(colour = bg.col),
+      strip.text.x     = ggplot2::element_text(hjust = 0, face = "bold",
+                                               color = "gray30",
+                                               size  = weeknames.size * 1.5),
+      axis.ticks       = ggplot2::element_blank(),
+      axis.title       = ggplot2::element_blank(),
+      axis.text.x      = ggplot2::element_text(colour = weeknames.col,
+                                               size   = weeknames.size * 2.25),
+      axis.text.y      = ggplot2::element_text(colour = week.number.col,
+                                               size   = week.number.size),
+      plot.title       = ggplot2::element_text(hjust = 0.5, size = title.size,
+                                               colour = title.col),
+      plot.subtitle    = ggplot2::element_text(hjust = 0.5, face = "italic",
+                                               colour = subtitle.col,
+                                               size   = subtitle.size),
+      legend.position  = legend.pos,
+      plot.margin      = ggplot2::unit(c(margin, 0.5 * margin, margin, 0.5 * margin), "cm"),
+      text             = ggplot2::element_text(family = font.family, face = font.style)
     )
 
   p
@@ -815,19 +591,11 @@ plot_calendar <- function(year        = as.integer(format(Sys.Date(), "%Y")),
 #  INTERNAL: theme helpers
 # ══════════════════════════════════════════════════════════════════════════════
 
-.calendar_theme_single <- function(bg.col,
-                                   weeknames.col,
-                                   weeknames.size,
-                                   week.number.col,
-                                   week.number.size,
-                                   title.size,
-                                   title.col,
-                                   subtitle.size,
-                                   subtitle.col,
-                                   legend.pos,
-                                   margin,
-                                   font.family,
-                                   font.style) {
+.calendar_theme_single <- function(bg.col, weeknames.col, weeknames.size,
+                                   week.number.col, week.number.size,
+                                   title.size, title.col,
+                                   subtitle.size, subtitle.col,
+                                   legend.pos, margin, font.family, font.style) {
   ggplot2::theme(
     panel.background = ggplot2::element_rect(fill = NA, color = NA),
     strip.background = ggplot2::element_rect(fill = NA, color = NA),
@@ -837,70 +605,47 @@ plot_calendar <- function(year        = as.integer(format(Sys.Date(), "%Y")),
     axis.ticks       = ggplot2::element_blank(),
     axis.title       = ggplot2::element_blank(),
     axis.text.x      = ggplot2::element_blank(),
-    axis.text.y      = ggplot2::element_text(colour = week.number.col, size = week.number.size),
-    plot.title       = ggplot2::element_text(
-      hjust = 0.5,
-      size = title.size,
-      colour = title.col
-    ),
-    plot.subtitle    = ggplot2::element_text(
-      hjust = 0.5,
-      face = "italic",
-      colour = subtitle.col,
-      size = subtitle.size
-    ),
+    axis.text.y      = ggplot2::element_text(colour = week.number.col,
+                                             size   = week.number.size),
+    plot.title       = ggplot2::element_text(hjust = 0.5, size = title.size,
+                                             colour = title.col),
+    plot.subtitle    = ggplot2::element_text(hjust = 0.5, face = "italic",
+                                             colour = subtitle.col,
+                                             size   = subtitle.size),
     legend.position  = legend.pos,
     plot.margin      = ggplot2::unit(c(margin, 0.5 * margin, margin, 0.5 * margin), "cm"),
-    text = ggplot2::element_text(family = font.family, face = font.style)
+    text             = ggplot2::element_text(family = font.family, face = font.style)
   )
 }
 
-.calendar_theme_yearly <- function(bg.col,
-                                   mbg.col,
-                                   months.col,
-                                   months.size,
-                                   months.pos,
-                                   weeknames.col,
-                                   weeknames.size,
-                                   week.number.col,
-                                   week.number.size,
-                                   title.size,
-                                   title.col,
-                                   subtitle.size,
-                                   subtitle.col,
-                                   legend.pos,
-                                   margin,
-                                   font.family,
-                                   font.style) {
+.calendar_theme_yearly <- function(bg.col, mbg.col, months.col, months.size,
+                                   months.pos, weeknames.col, weeknames.size,
+                                   week.number.col, week.number.size,
+                                   title.size, title.col,
+                                   subtitle.size, subtitle.col,
+                                   legend.pos, margin, font.family, font.style) {
   ggplot2::theme(
-    panel.background = ggplot2::element_rect(fill = NA, color = NA),
+    panel.background = ggplot2::element_rect(fill = NA,     color = NA),
     strip.background = ggplot2::element_rect(fill = mbg.col, color = mbg.col),
     plot.background  = ggplot2::element_rect(fill = bg.col),
     panel.grid       = ggplot2::element_line(colour = bg.col),
-    strip.text.x     = ggplot2::element_text(
-      hjust = months.pos,
-      color = months.col,
-      size = months.size
-    ),
+    strip.text.x     = ggplot2::element_text(hjust = months.pos, color = months.col,
+                                             size  = months.size),
     axis.ticks       = ggplot2::element_blank(),
     axis.title       = ggplot2::element_blank(),
-    axis.text.x      = ggplot2::element_text(colour = weeknames.col, size = weeknames.size * 2.25),
-    axis.text.y      = ggplot2::element_text(colour = week.number.col, size = week.number.size),
-    plot.title       = ggplot2::element_text(
-      hjust = 0.5,
-      size = title.size,
-      colour = title.col
-    ),
-    plot.subtitle    = ggplot2::element_text(
-      hjust = 0.5,
-      face = "italic",
-      colour = subtitle.col,
-      size = subtitle.size
-    ),
+    axis.text.x      = ggplot2::element_text(colour = weeknames.col,
+                                             size   = weeknames.size * 2.25),
+    axis.text.y      = ggplot2::element_text(colour = week.number.col,
+                                             size   = week.number.size),
+    plot.title       = ggplot2::element_text(hjust = 0.5, size = title.size,
+                                             colour = title.col),
+    plot.subtitle    = ggplot2::element_text(hjust = 0.5, face = "italic",
+                                             colour = subtitle.col,
+                                             size   = subtitle.size),
     legend.position  = legend.pos,
     plot.margin      = ggplot2::unit(c(margin, 0.5 * margin, margin, 0.5 * margin), "cm"),
-    text         = ggplot2::element_text(family = font.family, face = font.style),
-    strip.placement = "outside"
+    text             = ggplot2::element_text(family = font.family, face = font.style),
+    strip.placement  = "outside"
   )
 }
 

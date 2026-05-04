@@ -4,7 +4,7 @@
 \alias{categorise_events}
 \title{Categorise Calendar Events}
 \usage{
-categorise_events(df, tz = "Europe/Copenhagen")
+categorise_events(df, tz = "Europe/Copenhagen", night_label = "NV")
 }
 \arguments{
 \item{df}{A data frame containing calendar events with columns

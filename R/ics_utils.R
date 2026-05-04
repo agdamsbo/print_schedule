@@ -1,3 +1,23 @@
+
+#' wrapper to read ics file
+#'
+#' @param data ics file
+#'
+#' @returns data.frame
+#' @export
+#'
+#' @importFrom calendar ic_read
+read_ics <- function(data){
+  calendar::ic_read(data)
+}
+
+find_col <- function(dat, prefix) {
+  nm <- names(dat)[startsWith(names(dat), prefix)]
+  if (length(nm) == 0) stop("No column matching prefix: ", prefix)
+  nm[1]
+}
+
+
 #' Validate ICS Link
 #'
 #' Checks if a URL ends with .ics (case-insensitive), indicating it's a valid
@@ -51,20 +71,17 @@ validate_ics_link <- function(link) {
 #' @import dplyr
 #' @importFrom glue glue
 #' @export
-categorise_events <- function(df, tz = "Europe/Copenhagen") {
-  # Detect all-day events: start at 00:00:00 and end at 00:00:00 the next day
-  # (iCal all-day convention: DTSTART = date 00:00, DTEND = next date 00:00)
+categorise_events <- function(df, tz = "Europe/Copenhagen", night_label = "NV") {
   is_allday <- format(df$DTSTART, "%H:%M:%S") == "00:00:00" &
-    format(df$DTEND, "%H:%M:%S") == "00:00:00" &
+    format(df$DTEND,   "%H:%M:%S") == "00:00:00" &
     as.Date(df$DTEND) > as.Date(df$DTSTART)
 
-  if (isTRUE(any(is_allday))) {
+  if (any(is_allday, na.rm = TRUE)) {
     allday <- df[is_allday, ]
-
     expanded <- do.call(rbind, lapply(seq_len(nrow(allday)), function(i) {
       row     <- allday[i, ]
       start_d <- as.Date(format(row$DTSTART, "%Y-%m-%d", tz = tz))
-      end_d   <- as.Date(format(row$DTEND, "%Y-%m-%d", tz = tz)) - 1
+      end_d   <- as.Date(format(row$DTEND,   "%Y-%m-%d", tz = tz)) - 1
       days    <- seq(start_d, end_d, by = "day")
       n       <- length(days)
       rep_row <- row[rep(1, n), ]
@@ -72,29 +89,27 @@ categorise_events <- function(df, tz = "Europe/Copenhagen") {
       rep_row$DTEND   <- as.POSIXct(paste(days, "23:59:59"), tz = tz)
       rep_row
     }))
-
     df <- rbind(df[!is_allday, ], expanded)
   }
 
-  df <- df |>
-    dplyr::mutate(
-      StartTime = format(DTSTART, "%H:%M"),
-      EndTime   = format(DTEND, "%H:%M"),
-      StretchesToNextDay = as.Date(DTEND) > as.Date(DTSTART),
-      EventType = ifelse(
-        StretchesToNextDay,
-        paste0(StartTime, "-", EndTime, " (Nattevagt)"),
-        paste0(StartTime, "-", EndTime)
-      ),
-      # This ensures compability with other categories than work
-      EventType = ifelse(
-        SUMMARY != "Arbejde",
-        glue::glue("{EventType} ({SUMMARY})"),
-        EventType
-      ),
-      EventType = ifelse(StartTime == "00:00" &
-                           EndTime == "23:59", SUMMARY, EventType)
-    )
+  df$StartTime          <- format(df$DTSTART, "%H:%M")
+  df$EndTime            <- format(df$DTEND,   "%H:%M")
+  df$StretchesToNextDay <- as.Date(df$DTEND) > as.Date(df$DTSTART)
 
-  return(df)
+  df$EventType <- ifelse(
+    df$StretchesToNextDay,
+    paste0(df$StartTime, " - ", df$EndTime, " (", night_label, ")"),
+    paste0(df$StartTime, " - ", df$EndTime)
+  )
+  df$EventType <- ifelse(
+    df$SUMMARY != "Arbejde",
+    paste0(df$EventType, " (", df$SUMMARY, ")"),
+    df$EventType
+  )
+  df$EventType <- ifelse(
+    df$StartTime == "00:00" & df$EndTime == "23:59",
+    df$SUMMARY,
+    df$EventType
+  )
+  df
 }
